@@ -1,0 +1,32 @@
+name: Public privacy policy HTTP check
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/privacy-http-check.yml'
+      - 'index.html'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-public-https:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify public HTTPS page without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://vencedoranton.github.io/catdots-privacy/'
+          for attempt in {1..10}; do
+            status="$(curl -sSL --connect-timeout 10 --max-time 25 --output policy.html --write-out '%{http_code}' "$url" || true)"
+            if [[ "$status" == "200" ]] && grep -Fq 'Политика конфиденциальности' policy.html && grep -Fq 'Privacy Policy' policy.html && grep -Fq 'zabastron@gmail.com' policy.html; then
+              echo 'PASS: HTTPS 200 and RU/EN/email visible without login'
+              exit 0
+            fi
+            echo "Attempt $attempt: status $status, waiting for public edge propagation"
+            sleep 8
+          done
+          echo 'FAIL: publicly readable HTTPS policy not confirmed'
+          exit 1
